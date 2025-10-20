@@ -75,7 +75,7 @@ def search_events_node(
                         "id": best_result["id"],
                         "score": best_result["score"],
                         "source_type": best_result.get("source_type", "EVENT"),
-                        "source": best_result.get("source_name", ""),  # Table/source name
+                        "source": best_result.get("source", ""),  # Table/source name
                         "source_name": best_result.get("source_name", ""),  # Display name
                         "idname": best_result.get("idname", ""),  # Unique event identifier
                         "raw_metadata": best_result.get("raw_metadata", {})
@@ -85,7 +85,7 @@ def search_events_node(
                 }
                 all_results.append(formatted_result)
                 logger.info(
-                    f"[search_events] Matched (best): {best_result.get('idname', 'N/A')} (source: {best_result.get('source_name', 'N/A')}) "
+                    f"[search_events] Matched (best): {best_result.get('idname', 'N/A')} (source: {best_result.get('source', 'N/A')}) "
                     f"(score={best_result['score']:.3f})"
                 )
 
