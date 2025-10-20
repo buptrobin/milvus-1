@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip --version)",
+      "Bash(pip3:*)",
+      "Bash(python:*)",
+      "Bash(./venv/Scripts/pip install pymilvus)",
+      "Bash(./venv/Scripts/pip install pymilvus[model])",
+      "Bash(uv:*)",
+      "Bash(chcp:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.litellm.ai)",
+      "Bash(./venv/Scripts/python -m pytest test/test_query_processor.py -v)",
+      "Bash(./venv/Scripts/python -m pytest test/test_langgraph_agent.py -v)",
+      "Bash(find:*)",
+      "Bash(./venv/Scripts/python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

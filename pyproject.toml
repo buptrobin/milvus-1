@@ -1,0 +1,96 @@
+[project]
+name = "milvus-1"
+version = "0.1.0"
+description = "A project for working with Milvus vector database"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pymilvus>=2.6.1",
+    "pymilvus-model>=0.3.0",
+    "python-dotenv>=1.0.1",
+    "pandas>=2.3.2",
+    "numpy>=2.3.2",
+    "grpcio>=1.74.0",
+    "protobuf>=6.32.0",
+    "ujson>=5.11.0",
+    "sentence-transformers>=3.0.0",
+    "tqdm>=4.65.0",
+    "flagembedding>=1.3.5",
+    "context7-mcp-python>=1.0.4",
+    "playwright-mcp>=0.1.0",
+    "volcengine-python-sdk[ark]>=1.0.103",
+    "langgraph>=0.6.10",
+    "langchain-core>=0.3.79",
+]
+
+[project.optional-dependencies]
+# ML and embedding models support
+ml = [
+    "transformers>=4.56.0",
+    "sentence-transformers>=3.0.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "onnxruntime>=1.22.0",
+]
+
+# Image processing
+image = [
+    "pillow>=10.0.0",
+    "opencv-python>=4.8.0",
+]
+
+# Development tools
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=24.0.0",
+    "ruff>=0.4.0",
+    "ipykernel>=6.25.0",
+    "jupyter>=1.0.0",
+]
+
+# All optional dependencies
+all = [
+    "milvus-1[ml,image,dev]",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "ruff>=0.4.0",
+]
+# Use Aliyun mirror for faster downloads in China
+index-url = "https://mirrors.aliyun.com/pypi/simple/"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = []
+
+[tool.black]
+line-length = 120
+target-version = ['py311']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --tb=short"
