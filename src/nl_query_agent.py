@@ -305,9 +305,9 @@ class NaturalLanguageQueryAgent:
             # Extract event names from event results
             event_names = []
             for event in event_results:
-                event_idname = event.get('event_idname', '')
-                if event_idname:
-                    event_names.append(event_idname)
+                event_source = event.get('event_source', '')
+                if event_source:
+                    event_names.append(event_source)
 
             if not event_names:
                 return []

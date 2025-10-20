@@ -224,13 +224,13 @@ def _process_event_attr_results(
 
         confidence_level = _get_confidence_level(score)
 
-        event_idname = result.get("event_idname", "")
+        event_source = result.get("source", "")
 
         processed.append({
             "idname": matched_field.get("idname", ""),
             "source_name": matched_field.get("source_name", ""),
-            "event_idname": event_idname,
-            "event_name": result.get("event_name", event_idname),
+            "event_source": event_source,
+            "event_name": result.get("event_name", event_source),
             "original_query": result.get("original_query", ""),
             "score": round(score, 3),
             "confidence_level": confidence_level,
