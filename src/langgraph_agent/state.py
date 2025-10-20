@@ -34,6 +34,12 @@ class AgentState(TypedDict):
     Format: [{"attribute_name": "年龄", "query_text": "年龄: 25到35岁"}]
     """
 
+    events: List[Dict]
+    """
+    Extracted events from query
+    Format: [{"event_description": "购买事件", "event_attributes": ["购买金额", "购买时间"]}]
+    """
+
     # Milvus query results (with original query context)
     profile_results: Annotated[List[Dict], add]
     """
@@ -45,6 +51,26 @@ class AgentState(TypedDict):
     }]
     """
 
+    event_results: Annotated[List[Dict], add]
+    """
+    Event search results (accumulated)
+    Structure: [{
+        "matched_field": {...},  # Milvus returned field info
+        "original_query": "购买事件",  # Original query text
+        "event_attributes": [...]  # Event attributes to search
+    }]
+    """
+
+    event_attr_results: Annotated[List[Dict], add]
+    """
+    Event attribute search results (accumulated)
+    Structure: [{
+        "matched_field": {...},  # Milvus returned field info
+        "original_query": "购买金额",  # Original query text
+        "event_idname": "purchase_event",  # Parent event idname
+        "event_name": "购买事件"  # Parent event display name
+    }]
+    """
 
     # Final output
     final_result: Optional[Dict]

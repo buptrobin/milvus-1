@@ -188,7 +188,7 @@ class MilvusClient:
         query_vector: list[float],
         limit: int = 5
     ) -> list[dict[str, Any]]:
-        """Search for profile attributes (source_type = 'PROFILE')"""
+        """Search for profile attributes (source_type = 'PROFILE_ATTRIBUTE')"""
         search_params = {
             "metric_type": "COSINE",
             "params": {"ef": 128}
@@ -199,8 +199,75 @@ class MilvusClient:
             "raw_metadata"
         ]
 
-        # Filter for PROFILE type
+        # Filter for PROFILE_ATTRIBUTE type
         expr = "source_type == 'PROFILE_ATTRIBUTE'"
+
+        return self.search_collection(
+            collection_name=self.collection_config.metadata_collection,
+            query_vector=query_vector,
+            search_params=search_params,
+            output_fields=output_fields,
+            limit=limit,
+            expr=expr
+        )
+
+    def search_events(
+        self,
+        query_vector: list[float],
+        limit: int = 5
+    ) -> list[dict[str, Any]]:
+        """Search for events (source_type = 'EVENT')"""
+        search_params = {
+            "metric_type": "COSINE",
+            "params": {"ef": 128}
+        }
+
+        output_fields = [
+            "source_type", "source_name", "idname",
+            "raw_metadata"
+        ]
+
+        # Filter for EVENT type
+        expr = "source_type == 'EVENT'"
+
+        return self.search_collection(
+            collection_name=self.collection_config.metadata_collection,
+            query_vector=query_vector,
+            search_params=search_params,
+            output_fields=output_fields,
+            limit=limit,
+            expr=expr
+        )
+
+    def search_event_attributes(
+        self,
+        query_vector: list[float],
+        source: str,
+        limit: int = 5
+    ) -> list[dict[str, Any]]:
+        """
+        Search for event attributes (source_type = 'EVENT_ATTRIBUTE')
+
+        Args:
+            query_vector: Query embedding vector
+            source: Parent event idname to filter by
+            limit: Maximum number of results
+
+        Returns:
+            List of matching event attributes
+        """
+        search_params = {
+            "metric_type": "COSINE",
+            "params": {"ef": 128}
+        }
+
+        output_fields = [
+            "source_type", "source_name", "idname",
+            "source", "raw_metadata"
+        ]
+
+        # Filter for EVENT_ATTRIBUTE type and specific event
+        expr = f"source_type == 'EVENT_ATTRIBUTE' and source == '{source}'"
 
         return self.search_collection(
             collection_name=self.collection_config.metadata_collection,

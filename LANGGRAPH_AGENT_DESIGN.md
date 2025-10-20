@@ -1,15 +1,19 @@
 # LangGraph Agent 设计文档
 
+> **实施状态**: ✅ 已完成实施 (2025-10-20)
+>
+> 本设计文档的所有核心功能已完成实现,包括对 PROFILE_ATTRIBUTE、EVENT 和 EVENT_ATTRIBUTE 三种类型的完整支持。
+
 ## 1. 项目概述
 
 ### 1.1 目标
 开发一个基于 LangGraph 的智能查询代理,用于处理自然语言查询并从 Milvus 向量数据库中检索人的属性信息和事件信息。
 
-### 1.2 核心功能
-1. 接收用户的自然语言输入
-2. 识别查询意图(人的属性 vs 事件)
-3. 查询 Milvus 数据库获取相关信息
-4. 返回结构化的查询结果
+### 1.2 核心功能 ✅
+1. ✅ 接收用户的自然语言输入
+2. ✅ 识别查询意图(人的属性 / 事件 / 混合)
+3. ✅ 查询 Milvus 数据库获取相关信息
+4. ✅ 返回结构化的查询结果
 
 ### 1.3 技术栈
 - **LangGraph**: 工作流编排
@@ -90,20 +94,24 @@
 
 ## 3. LangGraph 工作流设计
 
-### 3.1 架构图
+### 3.1 架构图 ✅ (已实现)
 
 ```mermaid
 graph TD
     Start([START<br/>接收用户查询]) --> Intent[intent_classification<br/>意图识别和信息抽取<br/>LLM Node]
     Intent --> Route{route_query<br/>路由决策}
 
-    Route -->|profile| SearchProfiles[search_profiles<br/>查询人的属性<br/>Milvus Node]
-    Route -->|event/mixed| SearchEvents[search_events<br/>查询事件元数据<br/>Milvus Node]
-
-    SearchEvents --> SearchEventAttr[search_event_attributes<br/>查询事件的属性<br/>Milvus Node]
+    Route -->|search_profiles| SearchProfiles[search_profiles<br/>查询人的属性<br/>Milvus Node]
+    Route -->|search_events| SearchEvents[search_events<br/>查询事件元数据<br/>Milvus Node]
+    Route -->|search_mixed| SearchMixed[search_profiles_and_events<br/>并行查询人属性和事件<br/>Combined Node]
 
     SearchProfiles --> Aggregate[aggregate_results<br/>聚合和格式化结果]
+
+    SearchEvents --> SearchEventAttr[search_event_attributes<br/>查询事件的属性<br/>Milvus Node]
     SearchEventAttr --> Aggregate
+
+    SearchMixed --> SearchEventAttr2[search_event_attributes<br/>查询事件的属性<br/>Milvus Node]
+    SearchEventAttr2 --> Aggregate
 
     Aggregate --> End([END<br/>返回结果])
 
@@ -112,13 +120,22 @@ graph TD
     style Route fill:#f0f0f0
     style SearchProfiles fill:#e8f5e9
     style SearchEvents fill:#e8f5e9
+    style SearchMixed fill:#ffe8e8
     style SearchEventAttr fill:#e8f5e9
+    style SearchEventAttr2 fill:#e8f5e9
     style Aggregate fill:#f3e5f5
     style End fill:#e1f5ff
 ```
 
-### 3.2 State Schema 定义
+**实现说明**:
+- ✅ 支持三种路由路径: `search_profiles`, `search_events`, `search_mixed`
+- ✅ Mixed 模式下使用组合节点并行搜索 profile 和 event
+- ✅ 所有路径最终汇聚到 aggregate_results 节点
+
+### 3.2 State Schema 定义 ✅ (已实现)
 LangGraph 的状态对象需要在各个节点之间传递信息。
+
+**实现位置**: `src/langgraph_agent/state.py`
 
 ```python
 from typing import TypedDict, List, Dict, Optional, Annotated
@@ -141,7 +158,7 @@ class AgentState(TypedDict):
     profile_results: Annotated[List[Dict], add]    # 人的属性查询结果(累加)
     # 结构: [{"matched_field": {...}, "original_query": "25到35岁", "original_attribute": "年龄"}]
     event_results: Annotated[List[Dict], add]      # 事件查询结果(累加)
-    # 结构: [{"matched_field": {...}, "original_query": "购买"}]
+    # 结构: [{"matched_field": {...}, "original_query": "购买", "event_attributes": [...]}]
     event_attr_results: Annotated[List[Dict], add] # 事件属性查询结果(累加)
     # 结构: [{"matched_field": {...}, "original_query": "购买金额", "event_idname": "buy_online"}]
 
@@ -152,8 +169,10 @@ class AgentState(TypedDict):
 
 ### 3.3 节点详细设计
 
-#### Node 1: `intent_classification` (LLM Node)
+#### Node 1: `intent_classification` (LLM Node) ✅
 **职责**: 使用 LLM 理解用户查询,抽取结构化信息
+
+**实现位置**: `src/langgraph_agent/nodes/intent_node.py`
 
 **输入**:
 - `state.query`: 用户查询
@@ -222,41 +241,42 @@ class AgentState(TypedDict):
 
 ---
 
-#### Node 2: `route_query` (Conditional Edge/Router)
+#### Node 2: `route_query` (Conditional Edge/Router) ✅
 **职责**: 根据意图类型决定执行路径
+
+**实现位置**: `src/langgraph_agent/nodes/router.py`
 
 **输入**:
 - `state.intent_type`
 - `state.profile_attributes`
 - `state.events`
 
-**路由逻辑**:
+**路由逻辑** (已实现):
 ```python
-def route_query(state: AgentState) -> str:
+def route_query(state: AgentState) -> Literal["search_profiles", "search_events", "search_mixed"]:
     # 优先判断是否有结构化信息
     has_profiles = len(state["profile_attributes"]) > 0
     has_events = len(state["events"]) > 0
 
-    if has_profiles and not has_events:
-        return "search_profiles"
-    elif has_events and not has_profiles:
+    if has_profiles and has_events:
+        return "search_mixed"    # 并行执行
+    elif has_events:
         return "search_events"
-    elif has_profiles and has_events:
-        return "search_both"  # 并行执行
     else:
-        # 回退策略:使用关键词匹配
-        return "search_both"
+        return "search_profiles"  # 默认
 ```
 
 **输出**: 路由目标节点名称
-- `"search_profiles"`: 只查询人的属性
-- `"search_events"`: 查询事件和事件属性
-- `"search_both"`: 并行查询所有
+- ✅ `"search_profiles"`: 只查询人的属性
+- ✅ `"search_events"`: 查询事件和事件属性
+- ✅ `"search_mixed"`: 并行查询所有
 
 ---
 
-#### Node 3: `search_profiles` (Milvus Node)
+#### Node 3: `search_profiles` (Milvus Node) ✅
 **职责**: 在 Milvus 中查询人的静态属性
+
+**实现位置**: `src/langgraph_agent/nodes/profile_node.py`
 
 **输入**:
 - `state.profile_attributes`: 结构化的属性列表
@@ -309,8 +329,10 @@ for embedding in embeddings:
 
 ---
 
-#### Node 4: `search_events` (Milvus Node)
+#### Node 4: `search_events` (Milvus Node) ✅
 **职责**: 查询事件元数据
+
+**实现位置**: `src/langgraph_agent/nodes/event_node.py`
 
 **输入**:
 - `state.events`: 结构化的事件列表
@@ -362,8 +384,10 @@ for embedding in event_embeddings:
 
 ---
 
-#### Node 5: `search_event_attributes` (Milvus Node)
+#### Node 5: `search_event_attributes` (Milvus Node) ✅
 **职责**: 查询事件的属性字段
+
+**实现位置**: `src/langgraph_agent/nodes/event_attr_node.py`
 
 **输入**:
 - `state.events`: 包含事件属性列表
@@ -421,8 +445,10 @@ for event_info in state["events"]:
 
 ---
 
-#### Node 6: `aggregate_results` (Processing Node)
+#### Node 6: `aggregate_results` (Processing Node) ✅
 **职责**: 聚合、去重、格式化所有查询结果
+
+**实现位置**: `src/langgraph_agent/nodes/aggregate_node.py`
 
 **输入**:
 - `state.profile_results`
@@ -749,20 +775,45 @@ graph TD
 
 ---
 
-## 12. Review Checklist
+## 12. Review Checklist ✅
 
 在实现代码前,请确认以下问题:
 
-- [ ] State Schema 是否包含所有必要字段?
-- [ ] 节点的输入输出是否明确?
-- [ ] 路由逻辑是否覆盖所有情况?
-- [ ] Milvus 查询的过滤条件是否正确?
-- [ ] 是否需要回退策略(fallback)?
-- [ ] 错误处理是否完善?
-- [ ] 性能优化是否考虑?
-- [ ] 测试用例是否充分?
+- [x] State Schema 是否包含所有必要字段? ✅
+- [x] 节点的输入输出是否明确? ✅
+- [x] 路由逻辑是否覆盖所有情况? ✅
+- [x] Milvus 查询的过滤条件是否正确? ✅
+- [x] 是否需要回退策略(fallback)? ✅ (默认路由到 search_profiles)
+- [x] 错误处理是否完善? ✅ (所有节点都有 try-except)
+- [x] 性能优化是否考虑? ✅ (批量嵌入、并行搜索)
+- [x] 测试用例是否充分? ⚠️ (待添加完整的测试文件)
 
 ---
 
 **设计完成日期**: 2025-10-16
-**待 Review 通过后开始编码实现**
+**实施完成日期**: 2025-10-20
+**状态**: ✅ 核心功能已实现
+
+## 13. 实施完成状态
+
+### 已实现的文件
+
+| 文件路径 | 状态 | 说明 |
+|---------|------|------|
+| `src/langgraph_agent/state.py` | ✅ | State Schema 包含所有3种类型的字段 |
+| `src/langgraph_agent/nodes/intent_node.py` | ✅ | 已支持提取 events 字段 |
+| `src/langgraph_agent/nodes/router.py` | ✅ | 支持3种路由路径 |
+| `src/langgraph_agent/nodes/profile_node.py` | ✅ | 搜索 PROFILE_ATTRIBUTE |
+| `src/langgraph_agent/nodes/event_node.py` | ✅ | 搜索 EVENT (新增) |
+| `src/langgraph_agent/nodes/event_attr_node.py` | ✅ | 搜索 EVENT_ATTRIBUTE (新增) |
+| `src/langgraph_agent/nodes/aggregate_node.py` | ✅ | 聚合3种类型的结果 |
+| `src/langgraph_agent/nodes/__init__.py` | ✅ | 导出所有节点 |
+| `src/langgraph_agent/graph.py` | ✅ | 完整的工作流图 |
+| `src/milvus_client.py` | ✅ | 添加 search_events 和 search_event_attributes |
+
+### 下一步工作
+
+1. ⚠️ **测试**: 编写完整的单元测试和集成测试
+2. ⚠️ **文档**: 补充使用示例和 FAQ
+3. 🔄 **性能优化**: 监控实际运行性能,根据需要调优
+4. 🔄 **功能扩展**: 根据用户反馈添加新功能

@@ -16,6 +16,8 @@ from .nodes import (
     intent_classification_node,
     route_query,
     search_profiles_node,
+    search_events_node,
+    search_event_attributes_node,
     aggregate_results_node,
 )
 
@@ -26,7 +28,7 @@ def create_agent_graph(
     llm_extractor: Any,
     milvus_client: Any,
     embedding_manager: Any,
-    similarity_threshold: float = 0.65,
+    similarity_threshold: float = 0.5,
     ambiguity_threshold: float = 0.75
 ) -> Any:
     """
@@ -66,12 +68,28 @@ def create_agent_graph(
             state, milvus_client, embedding_manager, similarity_threshold
         )
 
+    def profiles_and_events_wrapper(state: AgentState) -> Dict[str, Any]:
+        """Combined node that searches both profiles and events in parallel"""
+        # Search profiles
+        profile_results = search_profiles_node(
+            state, milvus_client, embedding_manager, similarity_threshold
+        )
+        # Search events
+        event_results = search_events_node(
+            state, milvus_client, embedding_manager, similarity_threshold
+        )
+        # Merge results (both return updates to different state fields)
+        return {**profile_results, **event_results}
+
     def aggregate_node_wrapper(state: AgentState) -> Dict[str, Any]:
         return aggregate_results_node(state, similarity_threshold, ambiguity_threshold)
 
     # Add nodes to the graph
     workflow.add_node("intent_classification", intent_node_wrapper)
     workflow.add_node("search_profiles", profiles_node_wrapper)
+    workflow.add_node("search_events", events_node_wrapper)
+    workflow.add_node("search_event_attributes", event_attrs_node_wrapper)
+    workflow.add_node("search_profiles_and_events", profiles_and_events_wrapper)
     workflow.add_node("aggregate_results", aggregate_node_wrapper)
 
     # Set entry point
@@ -82,12 +100,21 @@ def create_agent_graph(
         "intent_classification",
         route_query,
         {
-            "search_profiles": "search_profiles"
+            "search_profiles": "search_profiles",
+            "search_events": "search_events",
+            "search_mixed": "search_profiles_and_events"
         }
     )
 
-    # Add edges from search nodes to aggregate
+    # Profile-only path: profiles -> aggregate
     workflow.add_edge("search_profiles", "aggregate_results")
+
+    # Event path: events -> event_attributes -> aggregate
+    workflow.add_edge("search_events", "search_event_attributes")
+    workflow.add_edge("search_event_attributes", "aggregate_results")
+
+    # Mixed path: profiles_and_events -> event_attributes -> aggregate
+    workflow.add_edge("search_profiles_and_events", "search_event_attributes")
 
     # Add edge from aggregate to END
     workflow.add_edge("aggregate_results", END)

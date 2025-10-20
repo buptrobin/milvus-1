@@ -42,27 +42,34 @@ def aggregate_results_node(
     try:
         # Collect all results
         profile_results = state.get("profile_results", [])
+        event_results = state.get("event_results", [])
+        event_attr_results = state.get("event_attr_results", [])
 
         logger.info(
             f"[aggregate_results] Input counts - "
-            f"profiles: {len(profile_results)}"
-            f"profiles result: {profile_results}"
+            f"profiles: {len(profile_results)}, "
+            f"events: {len(event_results)}, "
+            f"event_attrs: {len(event_attr_results)}"
         )
 
-        # Process profile attributes
+        # Process all result types
         profile_attributes = _process_profile_results(profile_results, similarity_threshold)
+        events = _process_event_results(event_results, similarity_threshold)
+        event_attributes = _process_event_attr_results(event_attr_results, similarity_threshold)
 
-        # Detect ambiguities
+        # Detect ambiguities across all result types
         ambiguous_options, has_ambiguity = _detect_ambiguities(
-            profile_results, [], [], ambiguity_threshold
+            profile_results, event_results, event_attr_results, ambiguity_threshold
         )
 
         # Generate summary
-        summary = _generate_summary(profile_attributes, [], [])
+        summary = _generate_summary(profile_attributes, events, event_attributes)
 
         # Calculate overall confidence
         all_scores = []
         all_scores.extend([attr["score"] for attr in profile_attributes])
+        all_scores.extend([evt["score"] for evt in events])
+        all_scores.extend([attr["score"] for attr in event_attributes])
 
         confidence_score = sum(all_scores) / len(all_scores) if all_scores else 0.0
 
@@ -71,8 +78,10 @@ def aggregate_results_node(
             "query": state.get("query", ""),
             "intent_type": state.get("intent_type", "unknown"),
             "profile_attributes": profile_attributes,
+            "events": events,
+            "event_attributes": event_attributes,
             "summary": summary,
-            "total_results": len(profile_attributes),
+            "total_results": len(profile_attributes) + len(events) + len(event_attributes),
             "confidence_score": round(confidence_score, 2),
             "has_ambiguity": has_ambiguity,
             "ambiguous_options": ambiguous_options,
@@ -82,6 +91,8 @@ def aggregate_results_node(
         logger.info(
             f"[aggregate_results] Final result - "
             f"profiles: {len(profile_attributes)}, "
+            f"events: {len(events)}, "
+            f"event_attrs: {len(event_attributes)}, "
             f"ambiguities: {len(ambiguous_options)}"
         )
 
@@ -94,6 +105,8 @@ def aggregate_results_node(
                 "query": state.get("query", ""),
                 "error": f"Aggregation failed: {str(e)}",
                 "profile_attributes": [],
+                "events": [],
+                "event_attributes": [],
                 "summary": "处理失败",
                 "total_results": 0,
                 "confidence_score": 0.0,

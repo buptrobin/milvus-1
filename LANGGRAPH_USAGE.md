@@ -1,24 +1,46 @@
 # LangGraph Agent 使用指南
 
+> **版本**: v2.0 (2025-10-20)
+> **新增功能**: ✅ 完整支持 EVENT 和 EVENT_ATTRIBUTE 查询
+
 本文档说明如何使用基于 LangGraph 的自然语言查询代理。
 
 ## 概述
 
 LangGraph Agent 是一个模块化的查询处理系统,可以:
-- 理解用户的自然语言查询
-- 识别查询意图(人的属性/事件/混合)
-- 从 Milvus 向量数据库中检索相关信息
-- 返回结构化的查询结果
+- ✅ 理解用户的自然语言查询
+- ✅ 识别查询意图(人的属性/事件/混合)
+- ✅ 从 Milvus 向量数据库中检索3种类型的信息:
+  - **PROFILE_ATTRIBUTE**: 人的静态属性 (年龄、性别等)
+  - **EVENT**: 事件类型 (购买、登录等)
+  - **EVENT_ATTRIBUTE**: 事件的属性 (购买金额、登录时间等)
+- ✅ 返回结构化的查询结果
 
-## 架构
+## 架构 ✅
 
 系统采用 LangGraph 工作流编排,包含以下节点:
-1. **intent_classification**: 使用 LLM 理解查询并抽取结构化信息
-2. **route_query**: 根据意图类型决定执行路径
-3. **search_profiles**: 查询人的静态属性
-4. **search_events**: 查询事件元数据
-5. **search_event_attributes**: 查询事件的属性
-6. **aggregate_results**: 聚合、去重、格式化结果
+
+| 节点 | 功能 | 状态 |
+|------|------|------|
+| **intent_classification** | 使用 LLM 理解查询并抽取结构化信息 | ✅ |
+| **route_query** | 根据意图类型决定执行路径 | ✅ |
+| **search_profiles** | 查询人的静态属性 (PROFILE_ATTRIBUTE) | ✅ |
+| **search_events** | 查询事件元数据 (EVENT) | ✅ |
+| **search_event_attributes** | 查询事件的属性 (EVENT_ATTRIBUTE) | ✅ |
+| **aggregate_results** | 聚合、去重、格式化结果 | ✅ |
+
+### 工作流路径
+
+系统支持3种智能路由路径:
+
+1. **Profile路径**: `intent → search_profiles → aggregate → END`
+   - 适用于: "查询用户的年龄和性别"
+
+2. **Event路径**: `intent → search_events → search_event_attributes → aggregate → END`
+   - 适用于: "查询购买相关的事件"
+
+3. **Mixed路径**: `intent → search_profiles_and_events → search_event_attributes → aggregate → END`
+   - 适用于: "25到35岁的男性用户,过去90天内购买过商品"
 
 ## 安装
 
@@ -186,24 +208,72 @@ uv run pytest test/test_langgraph_agent.py -v
 
 ## 测试用例
 
-设计文档中定义的测试用例:
-
-### 测试用例 1: 纯人属性查询
-```
+### 测试用例 1: 纯人属性查询 ✅
+```bash
 查询: "用户的年龄和性别信息"
 预期意图: profile
+预期路由: search_profiles
+预期结果类型: profile_attributes
 ```
 
-### 测试用例 2: 纯事件查询
+示例输出:
+```json
+{
+  "intent_type": "profile",
+  "profile_attributes": [
+    {"idname": "age_group", "source_name": "年龄段", "score": 0.87},
+    {"idname": "gender", "source_name": "性别", "score": 0.92}
+  ],
+  "events": [],
+  "event_attributes": []
+}
 ```
+
+### 测试用例 2: 纯事件查询 ✅
+```bash
 查询: "购买相关的事件"
 预期意图: event
+预期路由: search_events → search_event_attributes
+预期结果类型: events + event_attributes
 ```
 
-### 测试用例 3: 混合查询
+示例输出:
+```json
+{
+  "intent_type": "event",
+  "profile_attributes": [],
+  "events": [
+    {"idname": "buy_online", "source_name": "线上购买", "score": 0.90}
+  ],
+  "event_attributes": [
+    {"idname": "purchase_amount", "source_name": "购买金额", "event_idname": "buy_online", "score": 0.85}
+  ]
+}
 ```
+
+### 测试用例 3: 混合查询 ✅
+```bash
 查询: "25到35岁的男性用户,过去90天内购买过商品,查询购买金额"
 预期意图: mixed
+预期路由: search_profiles_and_events → search_event_attributes
+预期结果类型: profile_attributes + events + event_attributes
+```
+
+示例输出:
+```json
+{
+  "intent_type": "mixed",
+  "profile_attributes": [
+    {"idname": "age_group", "source_name": "年龄段", "score": 0.85},
+    {"idname": "gender", "source_name": "性别", "score": 0.92}
+  ],
+  "events": [
+    {"idname": "buy_online", "source_name": "线上购买", "score": 0.90}
+  ],
+  "event_attributes": [
+    {"idname": "purchase_amount", "source_name": "购买金额", "score": 0.88}
+  ]
+}
 ```
 
 ## 性能指标
@@ -241,35 +311,57 @@ uv run pytest test/test_langgraph_agent.py -v
 4. **查询建议**: 推荐相关的查询
 5. **可视化**: 使用 LangGraph Studio 可视化执行过程
 
-## 文件结构
+## 文件结构 ✅
 
 ```
 src/
 ├── langgraph_agent/
-│   ├── __init__.py              # 模块导出
-│   ├── state.py                 # State Schema 定义
-│   ├── graph.py                 # LangGraph 图定义
+│   ├── __init__.py              # 模块导出 ✅
+│   ├── state.py                 # State Schema 定义 ✅
+│   ├── graph.py                 # LangGraph 图定义 ✅
 │   ├── nodes/
-│   │   ├── __init__.py
-│   │   ├── intent_node.py       # intent_classification 节点
-│   │   ├── profile_node.py      # search_profiles 节点
-│   │   ├── event_node.py        # search_events 节点
-│   │   ├── event_attr_node.py   # search_event_attributes 节点
-│   │   ├── aggregate_node.py    # aggregate_results 节点
-│   │   └── router.py            # route_query 路由逻辑
+│   │   ├── __init__.py          # ✅
+│   │   ├── intent_node.py       # intent_classification 节点 ✅
+│   │   ├── profile_node.py      # search_profiles 节点 ✅
+│   │   ├── event_node.py        # search_events 节点 ✅ (新增)
+│   │   ├── event_attr_node.py   # search_event_attributes 节点 ✅ (新增)
+│   │   ├── aggregate_node.py    # aggregate_results 节点 ✅
+│   │   └── router.py            # route_query 路由逻辑 ✅
 │   └── utils.py                 # 辅助函数 (待添加)
-├── config.py                    # 配置
-├── milvus_client.py             # Milvus 客户端
-├── embedding_manager.py         # 嵌入管理
-└── llm_extractor.py             # LLM 抽取
+├── config.py                    # 配置 ✅
+├── milvus_client.py             # Milvus 客户端 ✅ (已扩展)
+├── embedding_manager.py         # 嵌入管理 ✅
+└── llm_extractor.py             # LLM 抽取 ✅
 
 # 主程序
 langgraph_agent_cli.py           # 命令行接口
 
 # 测试
 test/
-└── test_langgraph_agent.py      # 测试用例
+└── test_langgraph_agent.py      # 测试用例 ⚠️ (待补充)
 ```
+
+### 新增功能说明 (v2.0)
+
+#### 1. 新增节点文件
+- **event_node.py** (105行): 搜索 EVENT 类型的事件
+- **event_attr_node.py** (118行): 搜索 EVENT_ATTRIBUTE 类型,支持 event_idname 过滤
+
+#### 2. 扩展的 MilvusClient 方法
+- `search_events(query_vector, limit)`: 搜索事件,过滤 `source_type == 'EVENT'`
+- `search_event_attributes(query_vector, event_idname, limit)`: 搜索事件属性,过滤 `source_type == 'EVENT_ATTRIBUTE' and event_idname == '{event_idname}'`
+
+#### 3. State Schema 扩展
+新增字段:
+- `events: List[Dict]` - 存储LLM提取的事件信息
+- `event_results: Annotated[List[Dict], add]` - 事件搜索结果
+- `event_attr_results: Annotated[List[Dict], add]` - 事件属性搜索结果
+
+#### 4. 路由增强
+Router 现在支持3种路由:
+- `search_profiles`: 只查询 profile
+- `search_events`: 只查询 events + event_attributes
+- `search_mixed`: 并行查询 profile + events + event_attributes
 
 ## 故障排查
 

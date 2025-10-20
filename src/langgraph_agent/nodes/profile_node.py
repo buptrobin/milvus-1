@@ -62,31 +62,43 @@ def search_profiles_node(
 
             logger.debug(f"[search_profiles] Got {len(search_results)} results from Milvus for '{attr['attribute_name']}'")
 
-            # Format results with original query context
-            for result in search_results:
-                logger.debug(f"[search_profiles] Result: id={result['id']}, score={result['score']:.4f}, idname={result.get('idname', 'N/A')}, source_name={result.get('source_name', 'N/A')}, threshold={similarity_threshold}")
+            # Filter results by threshold and keep only the highest scoring one
+            valid_results = [r for r in search_results if r["score"] >= similarity_threshold]
 
-                if result["score"] >= similarity_threshold:
-                    formatted_result = {
-                        "matched_field": {
-                            "id": result["id"],
-                            "score": result["score"],
-                            "source_type": result.get("source_type", "PROFILE_ATTRIBUTE"),
-                            "source": result.get("source_name", ""),  # Table/source name (e.g., "pampers_customer")
-                            "source_name": result.get("source_name", ""),  # Display name (same as source for now)
-                            "idname": result.get("idname", ""),  # Unique field identifier (e.g., "age_group")
-                            "raw_metadata": result.get("raw_metadata", {})
-                        },
-                        "original_query": attr["query_text"],
-                        "original_attribute": attr["attribute_name"]
-                    }
-                    all_results.append(formatted_result)
-                    logger.info(
-                        f"[search_profiles] Matched: {result.get('idname', 'N/A')} (source: {result.get('source_name', 'N/A')}) "
-                        f"(score={result['score']:.3f})"
-                    )
-                else:
-                    logger.debug(f"[search_profiles] Filtered out (below threshold): {result.get('idname', 'N/A')} (score={result['score']:.3f})")
+            if valid_results:
+                # Sort by score descending and take the top one
+                best_result = max(valid_results, key=lambda x: x["score"])
+
+                logger.debug(f"[search_profiles] Best result: id={best_result['id']}, score={best_result['score']:.4f}, idname={best_result.get('idname', 'N/A')}, source_name={best_result.get('source_name', 'N/A')}")
+
+                formatted_result = {
+                    "matched_field": {
+                        "id": best_result["id"],
+                        "score": best_result["score"],
+                        "source_type": best_result.get("source_type", "PROFILE_ATTRIBUTE"),
+                        "source": best_result.get("source_name", ""),  # Table/source name (e.g., "pampers_customer")
+                        "source_name": best_result.get("source_name", ""),  # Display name (same as source for now)
+                        "idname": best_result.get("idname", ""),  # Unique field identifier (e.g., "age_group")
+                        "raw_metadata": best_result.get("raw_metadata", {})
+                    },
+                    "original_query": attr["query_text"],
+                    "original_attribute": attr["attribute_name"]
+                }
+                all_results.append(formatted_result)
+                logger.info(
+                    f"[search_profiles] Matched (best): {best_result.get('idname', 'N/A')} (source: {best_result.get('source_name', 'N/A')}) "
+                    f"(score={best_result['score']:.3f})"
+                )
+
+                # Log filtered out results
+                for result in search_results:
+                    if result["id"] != best_result["id"]:
+                        if result["score"] >= similarity_threshold:
+                            logger.debug(f"[search_profiles] Filtered out (lower score): {result.get('idname', 'N/A')} (score={result['score']:.3f})")
+                        else:
+                            logger.debug(f"[search_profiles] Filtered out (below threshold): {result.get('idname', 'N/A')} (score={result['score']:.3f})")
+            else:
+                logger.info(f"[search_profiles] No results above threshold for '{attr['attribute_name']}'")
 
         logger.info(f"[search_profiles] Found {len(all_results)} profile attribute matches (after threshold filtering)")
 

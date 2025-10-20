@@ -127,7 +127,7 @@ def print_results(final_state):
         print(f"\n事件属性 ({len(event_attrs)} 个):")
         for i, attr in enumerate(event_attrs, 1):
             print(f"  {i}. {attr['source_name']} (ID: {attr['idname']})")
-            print(f"     所属事件: {attr.get('event_name', '')} ({attr.get('event_idname', '')})")
+            print(f"     所属事件: {attr.get('event_name', '')} ({attr.get('source', '')})")
             print(f"     原始查询: {attr.get('original_query', '')}")
             print(f"     匹配分数: {attr['score']} ({attr['confidence_level']})")
 
@@ -197,7 +197,7 @@ def main():
             llm_extractor=llm_extractor,
             milvus_client=milvus_client,
             embedding_manager=embedding_manager,
-            similarity_threshold=0.65,
+            similarity_threshold=0.5,
             ambiguity_threshold=0.75
         )
 
