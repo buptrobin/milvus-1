@@ -37,13 +37,12 @@ def intent_classification_node(
     try:
         # Call LLM to extract information
         extracted_info = llm_extractor.extract(state["query"])
-
         # Log extracted info details
         logger.debug(f"[intent_classification] ExtractedInfo - intent_type: {extracted_info.intent_type}, confidence: {extracted_info.intent_confidence}")
         logger.debug(f"[intent_classification] ExtractedInfo - has_structured_query: {extracted_info.structured_query is not None}")
         if extracted_info.structured_query:
             import json
-            logger.debug(f"[intent_classification] structured_query: {json.dumps(extracted_info.structured_query, ensure_ascii=False)}")
+            logger.info(f"[intent_classification] structured_query: {json.dumps(extracted_info.structured_query, ensure_ascii=False)}")
 
         # Parse structured query from LLM response
         profile_attributes = []

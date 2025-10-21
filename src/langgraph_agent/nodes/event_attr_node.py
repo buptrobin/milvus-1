@@ -16,7 +16,8 @@ def search_event_attributes_node(
     state: AgentState,
     milvus_client: Any,  # MilvusClient instance
     embedding_manager: Any,  # EmbeddingManager instance
-    similarity_threshold: float = 0.65
+    similarity_threshold: float = 0.65,
+    ambiguity_threshold: float = 0.05  # If top 2 scores differ by less than this, mark as ambiguous
 ) -> Dict[str, Any]:
     """
     Search for event attributes in Milvus
@@ -29,6 +30,7 @@ def search_event_attributes_node(
         milvus_client: Milvus client instance
         embedding_manager: Embedding manager instance
         similarity_threshold: Minimum similarity score threshold
+        ambiguity_threshold: If top 2 scores differ by less than this value, mark as ambiguous
 
     Returns:
         Updated state with event_attr_results
@@ -93,8 +95,22 @@ def search_event_attributes_node(
                 valid_results = [r for r in search_results if r["score"] >= similarity_threshold]
 
                 if valid_results:
-                    # Sort by score descending and take the top one
-                    best_result = max(valid_results, key=lambda x: x["score"])
+                    # Sort by score descending
+                    sorted_results = sorted(valid_results, key=lambda x: x["score"], reverse=True)
+                    best_result = sorted_results[0]
+
+                    # Check for ambiguity: if top 2 scores are very close
+                    has_ambiguity = False
+                    if len(sorted_results) >= 2:
+                        score_diff = sorted_results[0]["score"] - sorted_results[1]["score"]
+                        has_ambiguity = score_diff < ambiguity_threshold
+                        if has_ambiguity:
+                            logger.warning(
+                                f"[search_event_attrs] Ambiguity detected for '{attr_query}' (event: {event_source}): "
+                                f"top score={sorted_results[0]['score']:.4f} ({sorted_results[0].get('idname', 'N/A')}), "
+                                f"2nd score={sorted_results[1]['score']:.4f} ({sorted_results[1].get('idname', 'N/A')}), "
+                                f"diff={score_diff:.4f} < threshold={ambiguity_threshold}"
+                            )
 
                     logger.debug(
                         f"[search_event_attrs] Best result: id={best_result['id']}, score={best_result['score']:.4f}, "
@@ -109,7 +125,8 @@ def search_event_attributes_node(
                             "source_name": best_result.get("source_name", ""),
                             "idname": best_result.get("idname", ""),  # Attribute idname
                             "source": best_result.get("source", event_source),  # Parent event idname
-                            "raw_metadata": best_result.get("raw_metadata", {})
+                            "raw_metadata": best_result.get("raw_metadata", {}),
+                            "has_ambiguity": has_ambiguity  # Flag indicating if result is ambiguous
                         },
                         "original_query": attr_query,
                         "source": event_source,
@@ -118,7 +135,7 @@ def search_event_attributes_node(
                     all_results.append(formatted_result)
                     logger.info(
                         f"[search_event_attrs] Matched (best): {best_result.get('idname', 'N/A')} "
-                        f"(event: {event_source}, score={best_result['score']:.3f})"
+                        f"(event: {event_source}, score={best_result['score']:.3f}, has_ambiguity={has_ambiguity})"
                     )
 
                     # Log filtered out results

@@ -48,8 +48,8 @@ def aggregate_results_node(
         logger.info(
             f"[aggregate_results] Input counts - "
             f"profiles: {len(profile_results)}, "
-            f"events: {len(event_results)}, "
-            f"event_attrs: {len(event_attr_results)}"
+            f"events: {len(event_results)}, {event_results}"
+            f"event_attrs: {len(event_attr_results)} {event_attr_results}"
         )
 
         # Process all result types
