@@ -1,9 +1,0 @@
-﻿"concept_id","profile_type","event_name","event_idname","raw_metadata","description"
-pampers_customerpampers_loyalty_points_change_fact,pampers_customer,会员积分变化历史记录,pampers_loyalty_points_change_fact,"{""desc"": ""会员积分变化历史记录"", ""profile_type"": ""pampers_customer""}",会员积分变化历史记录
-pampers_customerpampers_loyalty_points_redeem_gift_fact,pampers_customer,会员积分兑换礼品,pampers_loyalty_points_redeem_gift_fact,"{""desc"": ""会员积分兑换礼品"", ""profile_type"": ""pampers_customer""}",会员积分兑换礼品,,,,,,,,,,
-pampers_customerpampers_pty_loyalty_point_pool_dim,pampers_customer,会员即将过期积分,pampers_pty_loyalty_point_pool_dim,"{""desc"": ""会员即将过期积分"", ""profile_type"": ""pampers_customer""}",会员即将过期积分,,,,,,,,,,
-pampers_customerpampers_public_account_bind_snapshot_assoc,pampers_customer,会员渠道绑定记录,pampers_public_account_bind_snapshot_assoc,"{""desc"": ""会员渠道绑定记录"", ""profile_type"": ""pampers_customer""}",会员渠道绑定记录,,,,,,,,,,
-pampers_customerpampers_weconnect_bind_fact,pampers_customer,会员企微好友记录,pampers_weconnect_bind_fact,"{""desc"": ""会员企微好友记录"", ""profile_type"": ""pampers_customer""}",会员企微好友记录,,,,,,,,,,
-pampers_customerpampers_join_mkt_campaign_fact,pampers_customer,会员参加营销活动,pampers_join_mkt_campaign_fact,"{""desc"": ""会员参加营销活动"", ""profile_type"": ""pampers_customer""}",会员参加营销活动,,,,,,,,,,
-pampers_customerpampers_trans_fact,pampers_customer,会员购买订单,pampers_trans_fact,"{""desc"": ""会员购买订单"", ""profile_type"": ""pampers_customer""}",会员购买订单,,,,,,,,,,
-pampers_customerpampers_trans_detail_fact,pampers_customer,会员购买订单明细,pampers_trans_detail_fact,"{""desc"": ""会员购买订单明细"", ""profile_type"": ""pampers_customer""}",会员购买订单明细,,,,,,,,,,
